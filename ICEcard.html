@@ -1,0 +1,698 @@
+!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ICE - In Case of Emergency Card Generator</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚕️</text></svg>">
+    <!-- Include librerie per generare i QR Code e PDF -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Montserrat:wght@700&display=swap');
+
+        :root {
+            --primary-color: #d32f2f; /* Rosso emergenza */
+            --secondary-color: #1976d2; /* Blu informativo */
+            --background-color: #f5f7fa;
+            --card-background: #ffffff;
+            --text-color: #333333;
+            --light-gray: #e0e0e0;
+            --warning-color: #f39c12;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-family: 'Montserrat', sans-serif;
+            color: var(--primary-color);
+            font-size: 2.5em;
+            margin: 0;
+        }
+
+        header p {
+            font-size: 1.1em;
+            color: #666;
+            margin-top: 10px;
+        }
+        
+        .header-notice {
+            background-color: #eef7ff;
+            border: 1px solid #b3d4f5;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px auto 0 auto;
+            max-width: 90%;
+            text-align: left;
+        }
+        .header-notice p {
+            margin: 0;
+            font-size: 0.95em;
+            color: #31708f;
+            line-height: 1.5;
+        }
+        .header-notice strong {
+            color: #2c5a71;
+        }
+
+        .mode-selector {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            border: 1px solid var(--light-gray);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .mode-button {
+            flex: 1;
+            padding: 15px;
+            background-color: var(--card-background);
+            border: none;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .mode-button:first-child {
+            border-right: 1px solid var(--light-gray);
+        }
+
+        .mode-button.active {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+        .form-section {
+            background: var(--card-background);
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: #555;
+        }
+
+        .input-group input,
+        .input-group textarea,
+        .input-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--light-gray);
+            border-radius: 6px;
+            font-size: 1em;
+            box-sizing: border-box;
+            background-color: white;
+        }
+
+        .input-group-compound {
+            display: flex;
+            gap: 15px;
+        }
+        .input-group-compound > div {
+            flex: 1;
+        }
+        
+        .phone-input-container {
+            display: flex;
+            gap: 5px;
+        }
+        .phone-input-container select {
+            flex-basis: 30%;
+        }
+        .phone-input-container input {
+            flex-basis: 70%;
+        }
+        
+        #char-counter {
+            text-align: right;
+            font-size: 0.9em;
+            color: #777;
+        }
+        #char-counter.warning {
+            color: var(--warning-color);
+            font-weight: bold;
+        }
+
+        .generate-button {
+            width: 100%;
+            padding: 15px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.2em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-top: 20px;
+        }
+
+        .generate-button:hover {
+            background-color: #b71c1c;
+        }
+        
+        #card-preview-section {
+            margin-top: 40px;
+            padding: 30px;
+            background: var(--card-background);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        
+        #card-preview-section h2 {
+            margin-top: 0;
+            color: var(--secondary-color);
+        }
+
+        .card-previews-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin: 20px auto;
+        }
+
+        .ice-card {
+            width: 336px; /* 8.56cm * 39.37px/cm */
+            height: 210px; /* 5.398cm * 39.37px/cm */
+            border-radius: 12px;
+            padding: 15px;
+            background: var(--card-background);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            position: relative;
+            text-align: left;
+            font-size: 10px;
+            border: 1px solid var(--light-gray);
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Stile Fronte Card */
+        #ice-card-front {
+            background-image: url('ice1.jpg'); 
+            background-size: cover;
+            background-position: center;
+        }
+        
+        /* Stile Retro Card */
+        #ice-card-back {
+            display: flex;
+            flex-direction: row;
+        }
+        
+        .card-content { flex: 2; padding-right: 10px;}
+        .card-qr {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #qrcode {
+            width: 100%;
+            height: auto;
+            max-width: 100px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #qrcode img {
+            width: 100% !important;
+            height: 100% !important;
+        }
+        .card-title {
+            font-family: 'Montserrat', sans-serif;
+            color: var(--primary-color);
+            font-size: 14px;
+            margin: 0 0 10px 0;
+            border-bottom: 1.5px solid var(--primary-color);
+            padding-bottom: 4px;
+        }
+        .card-info-item {
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            word-break: break-all;
+        }
+        .card-info-item strong { color: #333; }
+        .card-info-item .icon { width: 12px; height: 12px; flex-shrink: 0; }
+
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .action-button {
+             padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: white;
+        }
+        .action-button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        #download-pdf-btn { background-color: #27ae60; }
+        #download-pdf-btn:hover:not(:disabled) { background-color: #229954; }
+
+
+        /* Stili per la stampa */
+        @media print {
+            body, .container, header, .mode-selector, .form-section, #card-preview-section h2, #card-preview-section p, .action-buttons {
+                visibility: hidden !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                height: 0 !important;
+                border: 0 !important;
+            }
+            @page {
+                size: A4;
+                margin: 1cm;
+            }
+            .card-previews-container {
+                visibility: visible !important;
+                position: absolute !important;
+                left: 1cm !important;
+                top: 1cm !important;
+                width: calc(100% - 2cm) !important;
+                display: flex !important;
+                flex-direction: row !important;
+                justify-content: flex-start !important;
+                gap: 1cm !important;
+            }
+            .ice-card {
+                visibility: visible !important;
+                width: 8.56cm !important;
+                height: 5.4cm !important;
+                border: 1px dashed black !important;
+                font-size: 7.5pt !important;
+                page-break-inside: avoid !important;
+                box-shadow: none !important;
+            }
+            .card-title { font-size: 10pt !important; }
+            #qrcode { width: 60px !important; height: 60px !important;}
+        }
+
+        /* Stili per mobile */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 0;
+            }
+            .form-section {
+                padding: 20px;
+            }
+            .mode-button, .generate-button, .action-button {
+                padding: 12px;
+                font-size: 1em;
+            }
+            header h1 {
+                font-size: 2em;
+            }
+             .card-previews-container {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>ICE Card</h1>
+            <p>Genera la tua card "In Case of Emergency" fronte e retro in pochi secondi.</p>
+            <div class="header-notice">
+                <p><strong>Consiglio / Tip:</strong> Per garantire la leggibilità del QR Code, inserisci solo le informazioni essenziali.<br><em>To ensure the QR code is easily scannable, please provide only essential information.</em></p>
+            </div>
+        </header>
+
+        <div class="mode-selector">
+            <button id="static-mode-btn" class="mode-button active">1. Card Statica (100% Privata)</button>
+            <button id="dynamic-mode-btn" class="mode-button">2. Card Dinamica (Link Online)</button>
+        </div>
+
+        <!-- Sezione Form per Card Statica -->
+        <div id="static-form" class="form-section">
+            <p style="text-align:center; color:#555;">Tutti i dati verranno salvati direttamente nel QR Code. Nessuna informazione viene memorizzata online.</p>
+            
+            <div class="input-group"><label for="s-nome">Nome e Cognome / Full Name</label><input type="text" id="s-nome"></div>
+            <div class="input-group"><label for="s-nascita">Data di Nascita / Date of Birth</label><input type="date" id="s-nascita"></div>
+            <div class="input-group">
+                <label>Gruppo Sanguigno / Blood Type</label>
+                <div class="input-group-compound">
+                    <div>
+                        <select id="s-gruppo-type"><option value="0">0</option><option value="A">A</option><option value="B">B</option><option value="AB">AB</option></select>
+                    </div>
+                    <div>
+                        <label for="s-gruppo-rh" class="sr-only">Fattore Rh</label>
+                        <select id="s-gruppo-rh"><option value="+">Rh + (Positivo)</option><option value="-">Rh - (Negativo)</option></select>
+                    </div>
+                </div>
+            </div>
+            <div class="input-group"><label for="s-allergie">Allergie Note / Known Allergies</label><textarea id="s-allergie" rows="2" placeholder="Es: Penicillina / e.g. Penicillin"></textarea></div>
+            <div class="input-group"><label for="s-patologie">Patologie Rilevanti / Medical Conditions</label><textarea id="s-patologie" rows="2" placeholder="Es: Diabete / e.g. Diabetes"></textarea></div>
+
+            <hr style="border: 0; border-top: 1px solid var(--light-gray); margin: 30px 0;">
+
+            <div class="input-group"><label for="s-ice-nome-contatto">Nome Contatto Emergenza / Emergency Contact Name</label><input type="text" id="s-ice-nome-contatto"></div>
+           
+            <div class="input-group">
+                <label for="s-ice-telefono-number">Telefono Contatto / Contact Phone</label>
+                <div class="phone-input-container">
+                    <select class="country-code" id="s-ice-telefono-prefix"></select>
+                    <input type="tel" id="s-ice-telefono-number" placeholder="Numero">
+                </div>
+            </div>
+            <div class="input-group"><label for="s-ice-email">Email Contatto / Contact Email</label><input type="email" id="s-ice-email"></div>
+            <div class="input-group">
+                 <label for="s-ice-whatsapp-number">WhatsApp Contatto / Contact WhatsApp</label>
+                <div class="phone-input-container">
+                    <select class="country-code" id="s-ice-whatsapp-prefix"></select>
+                    <input type="tel" id="s-ice-whatsapp-number" placeholder="Numero">
+                </div>
+            </div>
+
+            <hr style="border: 0; border-top: 1px solid var(--light-gray); margin: 30px 0;">
+
+            <div class="input-group"><label for="s-note">Note Aggiuntive / Additional Notes</label><textarea id="s-note" rows="3"></textarea></div>
+
+            <div id="char-counter">Caratteri per QR Code: 0 / 1500</div>
+
+            <button id="generate-static-btn" class="generate-button">Genera Card</button>
+        </div>
+        
+        <!-- Sezione Form per Card Dinamica -->
+        <div id="dynamic-form" class="form-section" style="display:none;">
+             <p style="text-align:center; color:#555; line-height: 1.5;">Il QR Code conterrà un link alla pagina web che indichi. La gestione di quella pagina (contenuti, privacy e sicurezza) è sotto la tua completa responsabilità.<br><br><em>The QR code will link to a webpage you provide. You are fully responsible for the management of that page (content, privacy, and security).</em></p>
+            <div class="input-group"><label for="d-nome">Il tuo Nome / Your Name (verrà scritto sulla card)</label><input type="text" id="d-nome"></div>
+            <div class="input-group"><label for="d-ice-nome-contatto">Nome Contatto Emergenza / ICE Contact Name</label><input type="text" id="d-ice-nome-contatto"></div>
+            <div class="input-group"><label for="d-ice-telefono-number">Telefono / Phone</label><div class="phone-input-container"><select class="country-code" id="d-ice-telefono-prefix"></select><input type="tel" id="d-ice-telefono-number" placeholder="Numero"></div></div>
+            <div class="input-group"><label for="d-ice-email">Email</label><input type="email" id="d-ice-email"></div>
+            <div class="input-group"><label for="d-ice-whatsapp-number">WhatsApp</label><div class="phone-input-container"><select class="country-code" id="d-ice-whatsapp-prefix"></select><input type="tel" id="d-ice-whatsapp-number" placeholder="Numero"></div></div>
+            <div class="input-group"><label for="d-url">Link al tuo profilo medico online</label><input type="url" id="d-url" placeholder="https://..."></div>
+            <button id="generate-dynamic-btn" class="generate-button">Genera Card</button>
+        </div>
+
+        <!-- Sezione Anteprima Card (visibile dopo la generazione) -->
+        <div id="card-preview-section" style="display: none;">
+            <h2>Ecco la tua Card ICE</h2>
+            <p>Scarica il PDF per salvare o stampare la tua card. Ti consigliamo di stamparla su cartoncino e ritagliarla.</p>
+            <div class="card-previews-container">
+                <!-- Fronte della Card -->
+                <div id="ice-card-front" class="ice-card">
+                    <!-- Contenuto del fronte generato tramite l'immagine di sfondo CSS -->
+                </div>
+                <!-- Retro della Card -->
+                <div id="ice-card-back" class="ice-card">
+                    <div class="card-content">
+                        <h3 class="card-title">EMERGENCY INFO</h3>
+                        <div class="card-info-item"><strong>Name:</strong> <span id="card-nome"></span></div>
+                        <div class="card-info-item"><strong>ICE Contact:</strong> <span id="card-ice-nome-contatto"></span></div>
+                        <div id="card-contact-details">
+                             <div class="card-info-item"><svg class="icon" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg><span id="card-ice-telefono"></span></div>
+                            <div class="card-info-item"><svg class="icon" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg><span id="card-ice-email"></span></div>
+                            <div class="card-info-item"><svg class="icon" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.79.46 3.48 1.34 4.94l-1.34 4.95 5.07-1.32c1.4.81 3.02 1.26 4.74 1.26h.01c5.46 0 9.9-4.45 9.9-9.91S17.5 2 12.04 2zM9.91 16.92c-.42-.22-2.5-1.23-2.88-1.38s-.65-.22-.94.22c-.29.44-1.11 1.38-1.36 1.67s-.5.44-.92.22c-.42-.22-1.76-.65-3.35-2.07C3.12 13.5 2.4 12.27 2.2 11.91s-.18-.58.11-.81c.26-.21.55-.55.7- .73s.25-.29.37-.49.03-.52-.06-.73c-.1-.22-.94-2.25-1.28-3.07s-.68-.69-.94-.7c-.26-.01-.55-.01-.84-.01s-.75.11-1.12.52C2.12 7.5 3 9.03 3 10.6c0 1.57 1.13 3.12 1.3 3.34s2.94 4.49 7.23 6.28c1.01.43 1.8.69 2.37.89.87.31 1.68.27 2.33.16.73-.12 2.5-1.02 2.85-1.98.35-.96.35-1.78.24-1.98s-.29-.24-.62-.42z"/></svg><span id="card-ice-whatsapp"></span></div>
+                        </div>
+                        <div class="card-info-item">
+                            <br><span>Scan QR for more info.</span>
+                        </div>
+                    </div>
+                    <div class="card-qr">
+                        <div id="qrcode"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="action-buttons">
+                <button id="download-pdf-btn" class="action-button">Download PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const staticModeBtn = document.getElementById('static-mode-btn');
+        const dynamicModeBtn = document.getElementById('dynamic-mode-btn');
+        const staticForm = document.getElementById('static-form');
+        const dynamicForm = document.getElementById('dynamic-form');
+        const qrcodeContainer = document.getElementById('qrcode');
+        const cardPreviewSection = document.getElementById('card-preview-section');
+        const charCounter = document.getElementById('char-counter');
+        const QR_CODE_LIMIT = 1500; // Limite conservativo per la leggibilità
+
+        // Gestione cambio modalità principale
+        staticModeBtn.addEventListener('click', () => {
+            staticForm.style.display = 'block';
+            dynamicForm.style.display = 'none';
+            staticModeBtn.classList.add('active');
+            dynamicModeBtn.classList.remove('active');
+        });
+
+        dynamicModeBtn.addEventListener('click', () => {
+            staticForm.style.display = 'none';
+            dynamicForm.style.display = 'block';
+            dynamicModeBtn.classList.add('active');
+            staticModeBtn.classList.remove('active');
+        });
+        
+        // Funzione per calcolare il testo e la lunghezza per il QR Code
+        function getQrTextAndLength() {
+            const userValues = {
+                name: document.getElementById('s-nome').value,
+                dob: document.getElementById('s-nascita').value,
+                blood: document.getElementById('s-gruppo-type').value + " " + document.getElementById('s-gruppo-rh').value,
+                allergies: document.getElementById('s-allergie').value,
+                conditions: document.getElementById('s-patologie').value,
+                iceName: document.getElementById('s-ice-nome-contatto').value,
+                icePhone: document.getElementById('s-ice-telefono-prefix').value + document.getElementById('s-ice-telefono-number').value,
+                iceEmail: document.getElementById('s-ice-email').value,
+                iceWhatsapp: document.getElementById('s-ice-whatsapp-prefix').value + document.getElementById('s-ice-whatsapp-number').value,
+                notes: document.getElementById('s-note').value
+            };
+            
+            const qrLabels = {
+                name: "Full Name",
+                dob: "Date of Birth",
+                blood: "Blood Type",
+                allergies: "Known Allergies",
+                conditions: "Medical Conditions",
+                iceName: "Emergency Contact Name",
+                icePhone: "Contact Phone",
+                iceEmail: "Contact Email",
+                iceWhatsapp: "Contact WhatsApp",
+                notes: "Notes"
+            };
+
+            let qrText = "--- IN CASE OF EMERGENCY ---\n";
+            for (const key in userValues) {
+                if (userValues[key]) {
+                    qrText += `${qrLabels[key]}: ${userValues[key]}\n`;
+                }
+            }
+            return qrText;
+        }
+        
+        // Aggiorna contatore caratteri
+        function updateCharCounter() {
+            const currentLength = getQrTextAndLength().length;
+            charCounter.textContent = `Caratteri per QR Code: ${currentLength} / ${QR_CODE_LIMIT}`;
+            if (currentLength > QR_CODE_LIMIT) {
+                charCounter.classList.add('warning');
+            } else {
+                charCounter.classList.remove('warning');
+            }
+        }
+        
+        // Aggiungi listener a tutti i campi del form statico
+        document.querySelectorAll('#static-form input, #static-form textarea, #static-form select').forEach(element => {
+            element.addEventListener('input', updateCharCounter);
+        });
+        
+        // Generazione Card Statica
+        document.getElementById('generate-static-btn').addEventListener('click', () => {
+            const qrText = getQrTextAndLength();
+            
+            if (qrText.length > QR_CODE_LIMIT) {
+                alert("ATTENZIONE: Hai inserito troppe informazioni.\n\nIl QR Code potrebbe risultare illeggibile. Per favore, accorcia i testi nei campi oppure considera di usare la modalità 'Card Dinamica' per una maggiore affidabilità.");
+                return;
+            }
+
+            const userValues = {
+                name: document.getElementById('s-nome').value,
+                iceName: document.getElementById('s-ice-nome-contatto').value,
+                icePhone: document.getElementById('s-ice-telefono-prefix').value + document.getElementById('s-ice-telefono-number').value,
+                iceEmail: document.getElementById('s-ice-email').value,
+                iceWhatsapp: document.getElementById('s-ice-whatsapp-prefix').value + document.getElementById('s-ice-whatsapp-number').value,
+            };
+
+            if (!userValues.name || !userValues.iceName) {
+                alert("Per favore, compila almeno 'Nome e Cognome' e 'Nome Contatto Emergenza'.");
+                return;
+            }
+            
+            generateQRCode(qrText);
+            
+            document.getElementById('card-nome').textContent = userValues.name;
+            document.getElementById('card-ice-nome-contatto').textContent = userValues.iceName;
+            document.getElementById('card-ice-telefono').textContent = userValues.icePhone;
+            document.getElementById('card-ice-email').textContent = userValues.iceEmail;
+            document.getElementById('card-ice-whatsapp').textContent = userValues.iceWhatsapp;
+            
+            cardPreviewSection.style.display = 'block';
+            window.scrollTo(0, document.body.scrollHeight);
+        });
+
+        // Generazione Card Dinamica
+        document.getElementById('generate-dynamic-btn').addEventListener('click', () => {
+            const url = document.getElementById('d-url').value;
+            const nome = document.getElementById('d-nome').value;
+            const iceNome = document.getElementById('d-ice-nome-contatto').value;
+            const iceTel = document.getElementById('d-ice-telefono-prefix').value + document.getElementById('d-ice-telefono-number').value;
+            const iceEmail = document.getElementById('d-ice-email').value;
+            const iceWhatsapp = document.getElementById('d-ice-whatsapp-prefix').value + document.getElementById('d-ice-whatsapp-number').value;
+
+            if (!nome || !iceNome || !url) {
+                alert("Per favore, compila almeno Nome, Nome Contatto e URL.");
+                return;
+            }
+
+            try { new URL(url); } catch (_) {
+                alert("Per favore, inserisci un URL valido (es. https://...)");
+                return;
+            }
+
+            generateQRCode(url);
+
+            document.getElementById('card-nome').textContent = nome;
+            document.getElementById('card-ice-nome-contatto').textContent = iceNome;
+            document.getElementById('card-ice-telefono').textContent = iceTel;
+            document.getElementById('card-ice-email').textContent = iceEmail;
+            document.getElementById('card-ice-whatsapp').textContent = iceWhatsapp;
+
+            cardPreviewSection.style.display = 'block';
+            window.scrollTo(0, document.body.scrollHeight);
+        });
+
+        function generateQRCode(text) {
+            qrcodeContainer.innerHTML = ''; 
+            new QRCode(qrcodeContainer, {
+                text: text,
+                width: 100,
+                height: 100,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.L
+            });
+        }
+        
+        function populateCountryCodes() {
+            const countryCodes = [
+                { name: 'IT', code: '+39' }, { name: 'US', code: '+1' }, { name: 'GB', code: '+44' }, 
+                { name: 'DE', code: '+49' }, { name: 'FR', code: '+33' }, { name: 'ES', code: '+34' }, 
+                { name: 'CH', code: '+41' }, { name: 'BR', code: '+55' }, { name: 'AU', code: '+61' },
+            ];
+
+            const selects = document.querySelectorAll('.country-code');
+            selects.forEach(select => {
+                countryCodes.forEach(country => {
+                    const option = document.createElement('option');
+                    option.value = country.code;
+                    option.textContent = `${country.name} (${country.code})`;
+                    if (country.name === 'IT') {
+                        option.selected = true;
+          
+                    }
+                    select.appendChild(option);
+                });
+            });
+        }
+        
+        document.getElementById('download-pdf-btn').addEventListener('click', async (e) => {
+            const btn = e.target;
+            btn.disabled = true;
+            btn.textContent = 'Genero PDF...';
+
+            const { jsPDF } = window.jspdf;
+            const frontCard = document.getElementById('ice-card-front');
+            const backCard = document.getElementById('ice-card-back');
+
+            try {
+                const [frontCanvas, backCanvas] = await Promise.all([
+                    html2canvas(frontCard, {useCORS: true, logging: false, scale: 3}), 
+                    html2canvas(backCard, {useCORS: true, logging: false, scale: 3})
+                ]);
+                
+                const frontImgData = frontCanvas.toDataURL('image/png');
+                const backImgData = backCanvas.toDataURL('image/png');
+
+                const doc = new jsPDF({
+                    orientation: 'landscape',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+
+                const cardWidth = 85.6;
+                const cardHeight = 54;
+                const margin = 10;
+
+                doc.addImage(frontImgData, 'PNG', margin, margin, cardWidth, cardHeight);
+                doc.addImage(backImgData, 'PNG', margin + cardWidth + margin, margin, cardWidth, cardHeight);
+                
+                doc.save('ICE-Card.pdf');
+
+            } catch (error) {
+                console.error("Errore durante la generazione del PDF:", error);
+                alert("Si è verificato un errore durante la generazione del PDF. Riprova.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Download PDF';
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+             populateCountryCodes();
+             updateCharCounter();
+        });
+    </script>
+</body>
+</html>
